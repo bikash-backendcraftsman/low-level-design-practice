@@ -56,6 +56,9 @@ public class Movie {
         this.releasedYear = releasedYear;
     }
 
+    /**
+     * This will print the movie Information.
+     */
     public void printMovieInformation(){
         System.out.println("Title: " + this.title);
         System.out.println("Year: " + this.releasedYear);
