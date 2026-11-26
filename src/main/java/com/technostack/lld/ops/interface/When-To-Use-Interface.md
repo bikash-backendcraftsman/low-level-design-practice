@@ -240,3 +240,90 @@ A new status cannot appear unless it is added to `permits`. A `switch` on `Route
 `RoutingStrategy` is the interface the application depends on. `AbstractRoutingStrategy` is optional, and only worth adding when Dijkstra and A* are copying the same loading code. The interface stays the boundary. The abstract class is the shared body behind that boundary.
 
 Contracts stay on interfaces. Shared fields and shared steps stay on abstract classes. Controllers and services then depend on the interface, which is what makes the Spring code replaceable in tests and in production.
+
+---
+
+## Part 6: Why the Factory pattern starts with an interface
+
+**Question.** While learning the Factory pattern, step 1 is "define an interface", for example `NotificationService`. The Factory moves object creation out of the client and into a factory class. Why does that step need an interface, and which of the earlier interface points does it match?
+
+### Which points it matches
+
+Defining `NotificationService` matches two of the cases above.
+
+**Dependency inversion (Part 1, point 2).** The Factory exists to decouple. The client must not know which notification class was created. It depends on the interface. The factory is the only place that sees `EmailNotification` or `SmsNotification`.
+
+**A CAN-DO contract for multiple implementations (Part 1, point 1, and the plugin case in point 4).** `EmailNotification`, `SmsNotification`, and `PushNotification` are different classes. They share one capability: `sendNotification()`. The interface is that shared contract, so the factory can return any of them through one type. That is also a Strategy: one contract, several interchangeable implementations.
+
+Without the interface, the factory is only a more complicated `new`. The pattern works because of polymorphism: the client calls the interface method, and the real object decides what that call does.
+
+### Without the interface
+
+If the factory returns a concrete class, the client is tied to that class.
+
+```java
+public class NotificationFactory {
+    public EmailNotification createNotification(String type) {
+        if ("EMAIL".equals(type)) {
+            return new EmailNotification();
+        }
+        return null;
+    }
+}
+
+NotificationFactory factory = new NotificationFactory();
+EmailNotification myService = factory.createNotification("EMAIL");
+myService.sendNotification("Route is ready");
+```
+
+The client must know `EmailNotification`. If the factory later returns `SmsNotification`, this client no longer compiles. Creation moved, and the coupling stayed.
+
+### With the interface
+
+```java
+public interface NotificationService {
+    void sendNotification(String message);
+}
+
+public class EmailNotification implements NotificationService {
+    public void sendNotification(String message) {
+        // send email
+    }
+}
+
+public class SmsNotification implements NotificationService {
+    public void sendNotification(String message) {
+        // send sms
+    }
+}
+
+public class NotificationFactory {
+    public NotificationService createNotification(String type) {
+        if ("EMAIL".equals(type)) {
+            return new EmailNotification();
+        }
+        if ("SMS".equals(type)) {
+            return new SmsNotification();
+        }
+        throw new IllegalArgumentException("Unknown notification type: " + type);
+    }
+}
+
+NotificationFactory factory = new NotificationFactory();
+NotificationService service = factory.createNotification("EMAIL");
+service.sendNotification("Route is ready");
+```
+
+The client sees `NotificationService` only. Adding `WhatsAppNotification` means a new class and one new branch in the factory. The client stays as it is.
+
+### The idea to keep
+
+The interface is the common return type, the common denominator.
+
+A factory is like a vending machine.
+
+- `NotificationService` is the generic beverage slot.
+- `EmailNotification` and `SmsNotification` are the specific cans inside.
+- The factory is the mechanism that drops one can into that slot.
+
+The person using the machine only needs to know the slot. They do not need a different slot shape for every drink. The interface standardizes what comes out, so the client has one way to call `sendNotification()` no matter which class the factory built.
